@@ -1,17 +1,16 @@
 use anyhow::Result;
+use std::time::Instant;
 use esp_idf_svc::hal::{
+    delay::FreeRtos,
+    gpio::PinDriver,
+    i2c::{I2cConfig, I2cDriver},
     peripherals::Peripherals,
     units::FromValueType,
-    i2c::{I2cConfig, I2cDriver},
-    delay::FreeRtos,
 };
-use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
-use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyleBuilder},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::{Baseline, Text},
-    primitives::{PrimitiveStyle, Triangle},
+use mpu6050::{
+    Mpu6050,
+    Mpu6050Error,
+    device::{ AccelRange, GyroRange, ACCEL_HPF },
 };
 
 //use rand::prelude::*;
@@ -27,42 +26,46 @@ fn main() -> Result<()> {
     log::info!("Hello, world!");
 
     let peripherals = Peripherals::take().unwrap();
-    let sda = peripherals.pins.gpio8;
-    let scl = peripherals.pins.gpio9;
-    let i2c = peripherals.i2c0;
 
-    let config = I2cConfig::new().baudrate(400.kHz().into());
-    let i2c = I2cDriver::new(i2c, sda, scl, &config)?;
+    let i2c_config = I2cConfig::new().baudrate(400.kHz().into());
+    let sda_imu = peripherals.pins.gpio1;
+    let scl_imu = peripherals.pins.gpio0;
+    let i2c_imu = I2cDriver::new(peripherals.i2c0, sda_imu, scl_imu, &i2c_config)?;
 
-    let interface = I2CDisplayInterface::new(i2c);
-    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
-        .into_buffered_graphics_mode();
-    display.init().unwrap();
+    let mut flag = PinDriver::output(peripherals.pins.gpio21)?;
+    flag.set_low()?;
 
-    let text_style = MonoTextStyleBuilder::new()
-        .font(&FONT_6X10)
-        .text_color(BinaryColor::On)
-        .build();
+    let mut delay = FreeRtos;
+    let mut mpu = Mpu6050::new(i2c_imu);
 
-    Text::with_baseline("Hello world!", Point::zero(), text_style, Baseline::Top)
-        .draw(&mut display).unwrap();
+    /* Supply chain issue:
+     * https://forum.arduino.cc/t/mpu-6050-a-module-problems-who-am-i-reports-0x98-not-0x68-as-it-should-fake-mpu-6050/861956/20
+     */
+    match mpu.init(&mut delay) {
+        Ok(_) => (),
+        Err(error) => match error {
+            Mpu6050Error::I2c(_) => log::error!("I2C initalization failed."),
+            Mpu6050Error::InvalidChipId(read) => log::warn!("Maybe counterfeit chip? GottenID {:#x}.", read),
+        }
+    };
 
-    Text::with_baseline("Hello Rust!", Point::new(0, 16), text_style, Baseline::Top)
-        .draw(&mut display).unwrap();
+    mpu.set_accel_range(AccelRange::G4).unwrap();
+    mpu.set_gyro_range(GyroRange::D250).unwrap();
+    mpu.set_accel_hpf(ACCEL_HPF::_RESET).unwrap();
 
-    let thin_stroke = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
-    let yoffset = 10;
-    Triangle::new(
-        Point::new(50, 25 + yoffset),
-        Point::new(50 + 25, 25 + yoffset),
-        Point::new(50 + 17, yoffset),
-    )
-    .into_styled(thin_stroke)
-    .draw(&mut display).unwrap();
-
-    display.flush().unwrap();
-
+    let mut tic = Instant::now();
     loop {
-        FreeRtos::delay_ms(2);
+        let toc = Instant::now();
+        //let dt = toc - tic;
+        tic = toc;
+        flag.set_high()?;
+        let acc = mpu.get_acc().unwrap();
+        flag.set_low()?;
+        let gyr = mpu.get_gyro().unwrap();
+        /*
+        println!("dt: {:?} acc: {:+.3} {:+.3} {:+.3} gyro: {:+.3} {:+.3} {:+.3}",
+        dt, acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
+        */
+        acc + gyr;
     }
 }
