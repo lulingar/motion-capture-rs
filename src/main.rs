@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::time::Instant;
 use esp_idf_svc::hal::{
     delay::FreeRtos,
     gpio::PinDriver,
@@ -7,10 +6,11 @@ use esp_idf_svc::hal::{
     peripherals::Peripherals,
     units::FromValueType,
 };
-use mpu6050::{
-    Mpu6050,
-    Mpu6050Error,
-    device::{ AccelRange, GyroRange, ACCEL_HPF },
+use mpu6050_dmp::{
+    address::Address,
+    sensor::Mpu6050,
+    quaternion::Quaternion,
+    yaw_pitch_roll::YawPitchRoll,
 };
 
 //use rand::prelude::*;
@@ -36,36 +36,23 @@ fn main() -> Result<()> {
     flag.set_low()?;
 
     let mut delay = FreeRtos;
-    let mut mpu = Mpu6050::new(i2c_imu);
+    let mut sensor = Mpu6050::new(i2c_imu, Address::default()).unwrap();
+    log::info!("Sensor Initialized");
+    sensor.initialize_dmp(&mut delay).unwrap();
+    log::info!("DMP Initialized");
 
-    /* Supply chain issue:
-     * https://forum.arduino.cc/t/mpu-6050-a-module-problems-who-am-i-reports-0x98-not-0x68-as-it-should-fake-mpu-6050/861956/20
-     */
-    match mpu.init(&mut delay) {
-        Ok(_) => (),
-        Err(error) => match error {
-            Mpu6050Error::I2c(_) => log::error!("I2C initalization failed."),
-            Mpu6050Error::InvalidChipId(read) => log::warn!("Maybe counterfeit chip? GottenID {:#x}.", read),
-        }
-    };
-
-    mpu.set_accel_range(AccelRange::G4).unwrap();
-    mpu.set_gyro_range(GyroRange::D250).unwrap();
-    mpu.set_accel_hpf(ACCEL_HPF::_RESET).unwrap();
-
-    let mut tic = Instant::now();
     loop {
-        let toc = Instant::now();
-        //let dt = toc - tic;
-        tic = toc;
-        flag.set_high()?;
-        let acc = mpu.get_acc().unwrap();
-        flag.set_low()?;
-        let gyr = mpu.get_gyro().unwrap();
-        /*
-        println!("dt: {:?} acc: {:+.3} {:+.3} {:+.3} gyro: {:+.3} {:+.3} {:+.3}",
-        dt, acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
-        */
-        acc + gyr;
+        let len = sensor.get_fifo_count().unwrap();
+        if len > 0 {
+            log::info!("Buflen is {}", len);
+        }
+        if len >= 28 {
+            let mut buf = [0; 28];
+            let buf = sensor.read_fifo(&mut buf).unwrap();
+            let quat = Quaternion::from_bytes(&buf[..16]).unwrap();
+            let ypr = YawPitchRoll::from(quat);
+            log::info!("{:.5?}; {:.5?}; {:.5?};", ypr.yaw, ypr.pitch, ypr.roll);
+            let _ = flag.toggle();
+        }
     }
 }

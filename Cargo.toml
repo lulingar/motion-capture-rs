@@ -29,7 +29,7 @@ esp-idf-svc = { version = "0.48", default-features = false }
 embedded-graphics = "0.7"
 embedded-svc = "*"
 ssd1306 = "0.7"
-mpu6050 = "*"
+mpu6050-dmp = "*"
 anyhow = "1"
 #rand = { version = "0.8.5", features = ["small_rng"] }
 
