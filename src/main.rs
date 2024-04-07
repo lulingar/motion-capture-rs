@@ -1,5 +1,6 @@
-use anyhow::Result;
+use core::time::Duration;
 use std::time::Instant;
+use anyhow::Result;
 use esp_idf_svc::hal::{
     delay::FreeRtos,
     gpio::PinDriver,
@@ -7,11 +8,15 @@ use esp_idf_svc::hal::{
     peripherals::Peripherals,
     units::FromValueType,
 };
+//use esp_idf_svc::sys::EspError;
+use esp_idf_svc::timer::EspTaskTimerService;
 use mpu6050::{
     Mpu6050,
     Mpu6050Error,
     device::{ AccelRange, GyroRange, ACCEL_HPF },
+    PI_180,
 };
+use imu_fusion::{Fusion, FusionAhrsSettings, FusionVector};
 
 //use rand::prelude::*;
 
@@ -32,8 +37,10 @@ fn main() -> Result<()> {
     let scl_imu = peripherals.pins.gpio0;
     let i2c_imu = I2cDriver::new(peripherals.i2c0, sda_imu, scl_imu, &i2c_config)?;
 
-    let mut flag = PinDriver::output(peripherals.pins.gpio21)?;
-    flag.set_low()?;
+    let mut flag_total = PinDriver::output(peripherals.pins.gpio21)?;
+    let mut flag_compute = PinDriver::output(peripherals.pins.gpio20)?;
+    flag_total.set_low()?;
+    flag_compute.set_low()?;
 
     let mut delay = FreeRtos;
     let mut mpu = Mpu6050::new(i2c_imu);
@@ -53,19 +60,47 @@ fn main() -> Result<()> {
     mpu.set_gyro_range(GyroRange::D250).unwrap();
     mpu.set_accel_hpf(ACCEL_HPF::_RESET).unwrap();
 
-    let mut tic = Instant::now();
+    /*
     loop {
+        let mut tic = Instant::now();
         let toc = Instant::now();
         //let dt = toc - tic;
         tic = toc;
-        flag.set_high()?;
-        let acc = mpu.get_acc().unwrap();
-        flag.set_low()?;
-        let gyr = mpu.get_gyro().unwrap();
-        /*
-        println!("dt: {:?} acc: {:+.3} {:+.3} {:+.3} gyro: {:+.3} {:+.3} {:+.3}",
-        dt, acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
-        */
-        acc + gyr;
+    }
+    */
+    const IMU_SAMPLE_PERIOD: Duration = Duration::from_millis(5);
+    const IMU_SAMPLE_FREQ: f32 = 1000_f32 / IMU_SAMPLE_PERIOD.subsec_millis() as f32;
+    let ahrs_settings = FusionAhrsSettings::new();
+    let mut fusion = Fusion::new(IMU_SAMPLE_FREQ as u32, ahrs_settings);
+    let start_time = Instant::now();
+
+    let timer_service = EspTaskTimerService::new().unwrap();
+    let callback_timer = {
+        timer_service.timer(move || {
+            flag_total.set_high().unwrap();
+            flag_compute.set_high().unwrap();
+            let ts = start_time.elapsed().as_secs_f32();
+
+            // Gets acceleration in units of earth gravity
+            let acc = mpu.get_acc().unwrap();
+            // Gets angular rotation in degrees/sec
+            let gyr = mpu.get_gyro().unwrap() / PI_180;
+
+            let gyro_vector = FusionVector::new(gyr.x, gyr.y, gyr.z);
+            let acceleration_vector = FusionVector::new(acc.x, acc.y, acc.z);
+            fusion.update_no_mag(gyro_vector, acceleration_vector, ts);
+            // Gets heading in units of degrees
+            let euler = fusion.euler();
+            flag_compute.set_low().unwrap();
+
+            println!("ts: {}, pitch:{:+.3} roll:{:+.3} yaw:{:+.3}", ts, euler.angle.pitch, euler.angle.roll, euler.angle.yaw);
+            flag_total.set_low().unwrap();
+        })?
+    };
+
+    callback_timer.every(IMU_SAMPLE_PERIOD).unwrap();
+
+    loop {
+        FreeRtos::delay_ms(100);
     }
 }
