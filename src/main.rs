@@ -73,15 +73,17 @@ fn main() -> Result<()> {
     const IMU_SAMPLE_FREQ: f32 = 1000_f32 / IMU_SAMPLE_PERIOD.subsec_millis() as f32;
     let ahrs_settings = FusionAhrsSettings::new();
     let mut fusion = Fusion::new(IMU_SAMPLE_FREQ as u32, ahrs_settings);
+    let mut pos = FusionVector::zero();
+    let mut vel = FusionVector::zero();
     let start_time = Instant::now();
 
     let timer_service = EspTaskTimerService::new().unwrap();
     let callback_timer = timer_service.timer(move || acq_cmp(
         &mut mpu,
         &mut fusion,
-        start_time
         start_time,
         &IMU_SAMPLE_PERIOD,
+        &mut pos, &mut vel,
         &mut flag_compute,
         &mut flag_total,
     ))?;
@@ -92,16 +94,13 @@ fn main() -> Result<()> {
     }
 }
 
-fn acq_cmp(flag_total: &mut PinDriver<Gpio21, Output>,
-           flag_compute: &mut PinDriver<Gpio20, Output>,
-           mpu: &mut Mpu6050<I2cDriver>,
-           fusion: &mut Fusion,
-           start_time: Instant) {
 fn acq_cmp(
     mpu: &mut Mpu6050<I2cDriver>,
     fusion: &mut Fusion,
     start_time: Instant,
     sampling_period: &Duration,
+    pos_vector: &mut FusionVector,
+    vel_vector: &mut FusionVector,
     flag_compute: &mut PinDriver<Gpio20, Output>,
     flag_total: &mut PinDriver<Gpio21, Output>,
 ) {
@@ -120,9 +119,16 @@ fn acq_cmp(
     // Gets heading in units of degrees
     let euler = fusion.euler();
     let earth_acc = fusion.earth_acc();
+    *vel_vector += earth_acc * 9.81 * sampling_period.as_secs_f32();
+    *pos_vector += *vel_vector * sampling_period.as_secs_f32();
     flag_compute.set_low().unwrap();
 
-    println!("ts: {}, pitch:{:+.3} roll:{:+.3} yaw:{:+.3}", ts, euler.angle.pitch, euler.angle.roll, euler.angle.yaw);
+    /*
+    println!("ts: {:5.5}, pitch:{:+.3} roll:{:+.3} yaw:{:+.3}, px:{:+.3}, py:{:+.3}, pz:{:+.3}",
+             ts,
+             euler.angle.pitch, euler.angle.roll, euler.angle.yaw,
+             pos_vector.x, pos_vector.y, pos_vector.z);
+    */
     println!("ts: {:5.5}, pitch:{:+.3} roll:{:+.3} yaw:{:+.3} ae_x:{:+.3} ae.y:{:+.3} ae.z:{:+.3}",
              ts,
              euler.angle.pitch, euler.angle.roll, euler.angle.yaw,
