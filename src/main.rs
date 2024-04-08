@@ -4,6 +4,7 @@ use anyhow::Result;
 use esp_idf_svc::hal::{
     delay::FreeRtos,
     gpio::PinDriver,
+    gpio::{Gpio20, Gpio21, Output},
     i2c::{I2cConfig, I2cDriver},
     peripherals::Peripherals,
     units::FromValueType,
@@ -21,7 +22,7 @@ use imu_fusion::{Fusion, FusionAhrsSettings, FusionVector};
 //use rand::prelude::*;
 
 fn main() -> Result<()> {
-    // It is necessary to call this function once. Otherwise some patches to the runtime
+    // It is necessary to call this function once. Otherwise, some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_svc::sys::link_patches();
 
@@ -51,7 +52,7 @@ fn main() -> Result<()> {
     match mpu.init(&mut delay) {
         Ok(_) => (),
         Err(error) => match error {
-            Mpu6050Error::I2c(_) => log::error!("I2C initalization failed."),
+            Mpu6050Error::I2c(_) => log::error!("I2C initialization failed."),
             Mpu6050Error::InvalidChipId(read) => log::warn!("Maybe counterfeit chip? GottenID {:#x}.", read),
         }
     };
@@ -75,32 +76,41 @@ fn main() -> Result<()> {
     let start_time = Instant::now();
 
     let timer_service = EspTaskTimerService::new().unwrap();
-    let callback_timer = {
-        timer_service.timer(move || {
-            flag_total.set_high().unwrap();
-            flag_compute.set_high().unwrap();
-            let ts = start_time.elapsed().as_secs_f32();
-
-            // Gets acceleration in units of earth gravity
-            let acc = mpu.get_acc().unwrap();
-            // Gets angular rotation in degrees/sec
-            let gyr = mpu.get_gyro().unwrap() / PI_180;
-
-            let gyro_vector = FusionVector::new(gyr.x, gyr.y, gyr.z);
-            let acceleration_vector = FusionVector::new(acc.x, acc.y, acc.z);
-            fusion.update_no_mag(gyro_vector, acceleration_vector, ts);
-            // Gets heading in units of degrees
-            let euler = fusion.euler();
-            flag_compute.set_low().unwrap();
-
-            println!("ts: {}, pitch:{:+.3} roll:{:+.3} yaw:{:+.3}", ts, euler.angle.pitch, euler.angle.roll, euler.angle.yaw);
-            flag_total.set_low().unwrap();
-        })?
-    };
-
+    let callback_timer = timer_service.timer(move || acq_cmp(
+        &mut flag_total,
+        &mut flag_compute,
+        &mut mpu,
+        &mut fusion,
+        start_time
+    ))?;
     callback_timer.every(IMU_SAMPLE_PERIOD).unwrap();
 
     loop {
         FreeRtos::delay_ms(100);
     }
+}
+
+fn acq_cmp(flag_total: &mut PinDriver<Gpio21, Output>,
+           flag_compute: &mut PinDriver<Gpio20, Output>,
+           mpu: &mut Mpu6050<I2cDriver>,
+           fusion: &mut Fusion,
+           start_time: Instant) {
+    flag_total.set_high().unwrap();
+    flag_compute.set_high().unwrap();
+    let ts = start_time.elapsed().as_secs_f32();
+
+    // Gets acceleration in units of earth gravity
+    let acc = mpu.get_acc().unwrap();
+    // Gets angular rotation in degrees/sec
+    let gyr = mpu.get_gyro().unwrap() / PI_180;
+
+    let gyro_vector = FusionVector::new(gyr.x, gyr.y, gyr.z);
+    let acceleration_vector = FusionVector::new(acc.x, acc.y, acc.z);
+    fusion.update_no_mag(gyro_vector, acceleration_vector, ts);
+    // Gets heading in units of degrees
+    let euler = fusion.euler();
+    flag_compute.set_low().unwrap();
+
+    println!("ts: {}, pitch:{:+.3} roll:{:+.3} yaw:{:+.3}", ts, euler.angle.pitch, euler.angle.roll, euler.angle.yaw);
+    flag_total.set_low().unwrap();
 }
