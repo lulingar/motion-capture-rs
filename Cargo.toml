@@ -10,7 +10,7 @@ rust-version = "1.71"
 opt-level = "s"
 
 [profile.dev]
-debug = true    # Symbols are nice and they don't increase the size on Flash
+debug = true    # Symbols are nice, and they don't increase the size on Flash
 opt-level = "z"
 
 [features]
@@ -26,10 +26,11 @@ embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-
 [dependencies]
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.48", default-features = false }
-embedded-graphics = "0.7"
+embedded-graphics = "0.8.1"
 embedded-svc = "*"
-ssd1306 = "0.7"
+ssd1306 = "0.8.4"
 anyhow = "1"
+toml-cfg = "0.2.0"
 #rand = { version = "0.8.5", features = ["small_rng"] }
 
 [build-dependencies]
