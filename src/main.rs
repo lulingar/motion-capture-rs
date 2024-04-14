@@ -9,6 +9,9 @@ use esp_idf_svc::hal::{
     peripherals::Peripherals,
     units::FromValueType,
 };
+use embedded_hal_bus::i2c;
+use core::cell::RefCell;
+use embedded_hal_bus::i2c::RefCellDevice;
 //use esp_idf_svc::sys::EspError;
 use esp_idf_svc::timer::EspTaskTimerService;
 use mpu6050::{
@@ -37,14 +40,15 @@ fn main() -> Result<()> {
     let sda_imu = peripherals.pins.gpio1;
     let scl_imu = peripherals.pins.gpio0;
     let i2c_imu = I2cDriver::new(peripherals.i2c0, sda_imu, scl_imu, &i2c_config)?;
-
+    let i2c_ref_cell = RefCell::new(i2c_imu);
+    
     let mut flag_total = PinDriver::output(peripherals.pins.gpio21)?;
     let mut flag_compute = PinDriver::output(peripherals.pins.gpio20)?;
     flag_total.set_low()?;
     flag_compute.set_low()?;
 
     let mut delay = FreeRtos;
-    let mut mpu = Mpu6050::new(i2c_imu);
+    let mut mpu = Mpu6050::new(i2c::RefCellDevice::new(&i2c_ref_cell));
 
     /* Supply chain issue:
      * https://forum.arduino.cc/t/mpu-6050-a-module-problems-who-am-i-reports-0x98-not-0x68-as-it-should-fake-mpu-6050/861956/20
@@ -95,7 +99,7 @@ fn main() -> Result<()> {
 }
 
 fn acq_cmp(
-    mpu: &mut Mpu6050<I2cDriver>,
+    mpu: &mut Mpu6050<RefCellDevice<I2cDriver>>,
     fusion: &mut Fusion,
     start_time: Instant,
     sampling_period: &Duration,
