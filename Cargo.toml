@@ -10,7 +10,7 @@ rust-version = "1.71"
 opt-level = "s"
 
 [profile.dev]
-debug = true    # Symbols are nice and they don't increase the size on Flash
+debug = true    # Symbols are nice, and they don't increase the size on Flash
 opt-level = "z"
 
 [features]
@@ -24,14 +24,20 @@ experimental = ["esp-idf-svc/experimental"]
 embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-svc/embassy-time-driver"]
 
 [dependencies]
-log = { version = "0.4", default-features = false }
+toml-cfg = "0.2.0"
+embedded-hal = "1.0.0"
 esp-idf-svc = { version = "0.48", default-features = false }
-embedded-graphics = "0.7"
+embedded-graphics = "0.8.1"
 embedded-svc = "*"
-ssd1306 = "0.7"
-mpu6050 = "*"
 anyhow = "1"
-imu-fusion = "0.2.1"
+log = { version = "0.4", default-features = false }
+embedded-hal-bus = { version = "0.1.0", features = ["std"] }
+ssd1306 = "0.8.4"
+mpu6050 = "*"
+imu-fusion = { git="https://github.com/mark2b/imu-fusion-rs.git" }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.*"
+chrono = "0.4.37"
 #rand = { version = "0.8.5", features = ["small_rng"] }
 
 [build-dependencies]
