@@ -13,6 +13,8 @@ use esp_idf_svc::hal::{
 };
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
+use embedded_hal_bus::i2c;
+use core::cell::RefCell;
 use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyleBuilder},
@@ -21,6 +23,7 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_hal_bus::i2c::RefCellDevice;
 use ssd1306::mode::BufferedGraphicsMode;
 
 //use rand::prelude::*;
@@ -58,13 +61,14 @@ fn main() -> Result<()> {
     let sda_imu = peripherals.pins.gpio1;
     let scl_imu = peripherals.pins.gpio0;
     let i2c = I2cDriver::new(peripherals.i2c0, sda_imu, scl_imu, &i2c_config)?;
+    let i2c_ref_cell = RefCell::new(i2c);  
 
     let mut flag_total = PinDriver::output(peripherals.pins.gpio21)?;
     let mut flag_compute = PinDriver::output(peripherals.pins.gpio20)?;
     flag_total.set_low()?;
     flag_compute.set_low()?;
 
-    let interface = I2CDisplayInterface::new(i2c);
+    let interface = I2CDisplayInterface::new(i2c::RefCellDevice::new(&i2c_ref_cell));
     let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
     display.init().unwrap();
@@ -73,7 +77,7 @@ fn main() -> Result<()> {
         .font(&FONT_6X10)
         .text_color(BinaryColor::On)
         .build();
-
+    
     let base_point = Point::zero();
     let msg = format!("SSID: {}", CONFIG.wifi_ssid);
     let mut base_point = display_msg(&mut display, text_style, msg, base_point);
@@ -118,7 +122,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn display_msg(display: &mut Ssd1306<I2CInterface<I2cDriver>, DisplaySize128x64, BufferedGraphicsMode<DisplaySize128x64>>,
+fn display_msg(display: &mut Ssd1306<I2CInterface<RefCellDevice<I2cDriver>>, DisplaySize128x64, BufferedGraphicsMode<DisplaySize128x64>>,
                text_style: MonoTextStyle<BinaryColor>,
                msg: String,
                point: Point,
