@@ -30,7 +30,8 @@ embedded-graphics = "0.7"
 embedded-svc = "*"
 embedded-hal-bus = "0.1.0"
 ssd1306 = { git = "https://github.com/irii/ssd1306.git", branch="embedded-hal-1.0.0" }
-mpu6050 = { git = "https://github.com/Vollbrecht/mpu6050.git", branch="update-embedded-hal" }
+#mpu6050 = { git = "https://github.com/Vollbrecht/mpu6050.git", branch="update-embedded-hal" }
+mpu6050 = { path = "/home/being/code/oss/mpu6050" }
 anyhow = "1"
 imu-fusion = "0.2.4"
 
