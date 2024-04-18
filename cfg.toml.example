@@ -1,0 +1,7 @@
+[test-hardware]
+mqtt_host: ""
+mqtt_port: ""
+mqtt_user: ""
+mqtt_pass: ""
+wifi_ssid: ""
+wifi_psk: ""
