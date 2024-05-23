@@ -2,6 +2,7 @@ mod imu_tracker;
 
 use core::time::Duration;
 use std::num::NonZeroU32;
+use std::sync::mpsc::channel;
 use std::time::Instant;
 use anyhow::Result;
 use esp_idf_svc::{
@@ -135,16 +136,33 @@ fn main() -> Result<()> {
     let mqtt_url: String = format!("mqtt://{}:{}", CONFIG.mqtt_host, CONFIG.mqtt_port);
     let (mut client, mut conn) = mqtt_create(&mqtt_url, CONFIG.mqtt_user, CONFIG.mqtt_pass)?;
 
+    // Background task for handling MQTT events
     std::thread::Builder::new()
         .stack_size(8192)
         .spawn(move || {
             log::info!("MQTT Listening for messages");
-            while let Ok(event) = conn.next() {
-                log::info!("[Queue] Event: {}", event.payload());
+            while conn.next().is_ok() {}
+            log::info!("Connection closed");
+        })?;
+
+    client.subscribe("commands", QoS::AtLeastOnce)?;
+    // Background task for immediate sending of samples over MQTT
+    let (tx, rx) = channel::<String>();
+    std::thread::Builder::new()
+        .stack_size(8192)
+        .spawn(move || {
+            log::info!("Awaiting samples to send");
+            let meas_topic = format!("{}/meas", CONFIG.mqtt_id);
+            while let Ok(payload) = rx.recv() {
+                if let Err(e) = client.publish(&meas_topic,
+                                                         QoS::AtLeastOnce,
+                                                  false,
+                                                         payload.as_bytes()) {
+                    log::warn!("Error sending sample! {e:?}");
+                }
             }
             log::info!("Connection closed");
-        })
-        .unwrap();
+        })?;
 
     // Configures the notification
     let notification = Notification::new();
@@ -163,7 +181,6 @@ fn main() -> Result<()> {
     const SKIP_COUNT: u32 = REPORT_PERIOD.as_millis() as u32 / (IMU_SAMPLE_PERIOD.as_millis() as u32);
     let mut skip = 0;
 
-    let meas_topic = format!("{}/meas", CONFIG.mqtt_id);
     loop {
         notification.wait(esp_idf_svc::hal::delay::BLOCK);
         
@@ -179,19 +196,23 @@ fn main() -> Result<()> {
         if skip == SKIP_COUNT {
             flag_serialize.set_high().unwrap();
             skip = 0;
-            //println!("... px:{:+.3}, py:{:+.3}, pz:{:+.3}",
-            //         pos_vector.x, pos_vector.y, pos_vector.z);
-            let payload = format!("dt [ms]: {:.2}, pitch:{:+.1} roll:{:+.1} yaw:{:+.1} ae_x:{:+.3} ae.y:{:+.3} ae.z:{:+.3}",
-                                  1000f32*tracker.latest_delta,
-                     tracker.euler.angle.pitch, tracker.euler.angle.roll, tracker.euler.angle.yaw,
-                     tracker.accel.x, tracker.accel.y, tracker.accel.z,
-            );
-            client.enqueue(&meas_topic, QoS::AtLeastOnce, false, payload.as_bytes())?;
-            log::info!("dt: {:5.2}ms ({:.1}%), temp: {:.1}C",
-                       1000f32*tracker.latest_delta, deviation, all.temp);
-           flag_serialize.set_low().unwrap();
+            let payload = compose_payload(&tracker, Instant::now());
+            tx.send(payload)?;
+            //log::info!("dt: {:5.2}ms ({:.1}%), temp: {:.1}C, {:.3}, {:.3}, {:.3}",
+            //           1000f32*tracker.latest_delta, deviation, all.temp, tracker.linear_acc.x, tracker.linear_acc.y, tracker.linear_acc.z);
+            flag_serialize.set_low().unwrap();
         }
     }
+}
+
+fn compose_payload(tracker: &ImuTracker, timestamp: Instant) -> String {
+    //println!("... px:{:+.3}, py:{:+.3}, pz:{:+.3}" -> pos_vector.x, pos_vector.y, pos_vector.z);
+    //"dt [ms]: {:.2}  -> 1000f32*tracker.latest_delta,
+    let acc_si = tracker.linear_acc * 9.807;
+    format!("{},{:.1},{:.1},{:.1},{:.3},{:.3},{:.3}",
+            timestamp.duration_since(tracker.start_time).as_millis(),
+            tracker.euler.angle.pitch, tracker.euler.angle.roll, tracker.euler.angle.yaw,
+            acc_si.x, acc_si.y, acc_si.z)
 }
 
 fn display_msg(display: &mut Ssd1306<I2CInterface<I2cDriver>, DisplaySize128x64, BufferedGraphicsMode<DisplaySize128x64>>,
@@ -241,7 +262,7 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> Result<()> {
     log::info!("Wifi connected");
 
     wifi.wait_netif_up()?;
-    log::info!("Wifi netif up");
+    log::info!("Wifi enumerated");
 
     Ok(())
 }
