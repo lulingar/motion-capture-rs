@@ -86,7 +86,7 @@ fn main() -> Result<()> {
 
     const IMU_SAMPLE_PERIOD: Duration = Duration::from_millis(5);
 
-    let timer_service = EspTaskTimerService::new().unwrap();
+    let timer_service = EspTaskTimerService::new()?;
     let callback_timer = timer_service.timer(move || unsafe {
         notifier.notify_and_yield(NonZeroU32::new(1).unwrap());
     })?;
@@ -97,20 +97,20 @@ fn main() -> Result<()> {
 
     loop {
         notification.wait(esp_idf_svc::hal::delay::BLOCK);
-        flag_acquire.set_high().unwrap();
+        flag_acquire.set_high()?;
         // TODO read up on the "turbofish" operator below
         let all = imu
             .unscaled_all::<[i16; 3]>()
             .expect("Unable to read from IMU!");
-        flag_acquire.set_low().unwrap();
-        flag_serialize.set_high().unwrap();
+        flag_acquire.set_low()?;
+        flag_serialize.set_high()?;
         let now = Instant::now();
         let usecs = now.duration_since(last).as_micros();
         last = now;
         println!(
             "{},{},{},{},{},{},{},{},{}",
-            usecs,
             id,
+            usecs,
             all.accel[0],
             all.accel[1],
             all.accel[2],
@@ -120,6 +120,6 @@ fn main() -> Result<()> {
             all.temp
         );
         id += 1;
-        flag_serialize.set_low().unwrap();
+        flag_serialize.set_low()?;
     }
 }
