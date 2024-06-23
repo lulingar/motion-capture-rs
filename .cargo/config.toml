@@ -6,6 +6,8 @@ linker = "ldproxy"
 # runner = "espflash --monitor" # Select this runner for espflash v1.x.x
 runner = "espflash flash --monitor" # Select this runner for espflash v2.x.x
 rustflags = [
+    "-C",
+    "default-linker-libraries",
     "--cfg",
     "espidf_time64",
 ]
