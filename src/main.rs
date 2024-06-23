@@ -2,7 +2,7 @@ use core::time::Duration;
 use std::num::NonZeroU32;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use esp_idf_svc::hal::spi::{SpiDeviceDriver, SpiDriverConfig};
 use esp_idf_svc::hal::task::notification::Notification;
 use esp_idf_svc::hal::{
@@ -95,13 +95,21 @@ fn main() -> Result<()> {
     let mut last = Instant::now();
     let mut id = 0u32;
 
+    /* Test calibration function. As expected, it cannot account for earth's gravity
+    let offsets: [f32; 3] = imu.calibrate_at_rest(&mut delay).map_err(|err| anyhow!("Error: {:?}", err))?;
+    println!("Offsets: {:?}", offsets);
+    */
+
     loop {
         notification.wait(esp_idf_svc::hal::delay::BLOCK);
         flag_acquire.set_high()?;
-        // TODO read up on the "turbofish" operator below
+        /*
         let all = imu
             .unscaled_all::<[i16; 3]>()
             .expect("Unable to read from IMU!");
+        */
+        // TODO read up on the "turbofish" operator below
+        let all = imu.all::<[f32; 3]>().map_err(|err| anyhow!("Error: {:?}", err))?;
         flag_acquire.set_low()?;
         flag_serialize.set_high()?;
         let now = Instant::now();
