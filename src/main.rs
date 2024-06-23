@@ -84,7 +84,7 @@ fn main() -> Result<()> {
     let notification = Notification::new();
     let notifier = notification.notifier();
 
-    const IMU_SAMPLE_PERIOD: Duration = Duration::from_millis(5);
+    const IMU_SAMPLE_PERIOD: Duration = Duration::from_millis(10);
 
     let timer_service = EspTaskTimerService::new()?;
     let callback_timer = timer_service.timer(move || unsafe {
