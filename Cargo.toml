@@ -27,7 +27,7 @@ embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.48", default-features = false }
 embedded-hal = "*"
-embedded-graphics = "0.8"
+#embedded-graphics = "0.8"
 embedded-svc = "*"
 ssd1306 = "0.8"
 mpu9250 = "0.25"
