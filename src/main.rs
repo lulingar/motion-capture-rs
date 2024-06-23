@@ -11,9 +11,10 @@ use esp_idf_svc::hal::{
     peripherals::Peripherals,
     units::FromValueType,
     //sys::EspError,
+    spi::config::Config as SpiConfig,
 };
 use esp_idf_svc::timer::EspTaskTimerService;
-use mpu9250::Mpu9250;
+use mpu9250::{ Mpu9250, MpuConfig };
 
 mod imu_tracker;
 
@@ -52,7 +53,6 @@ fn main() -> Result<()> {
     let miso = peripherals.pins.gpio2;
     let mosi = peripherals.pins.gpio7;
     let cs = PinDriver::output(peripherals.pins.gpio10)?;
-    let spi_config = esp_idf_svc::hal::spi::config::Config::default().baudrate(1.MHz().into());
     let spi = SpiDeviceDriver::new_single(
         peripherals.spi2,
         sclk,
@@ -60,10 +60,19 @@ fn main() -> Result<()> {
         Some(miso),
         Option::<AnyOutputPin>::None,
         &SpiDriverConfig::new(),
-        &spi_config,
+        &SpiConfig::default().baudrate(1.MHz().into()),
     )?;
-    let mut imu = Mpu9250::imu_default(spi, cs, &mut delay).expect("Could not init IMU!");
-    let who_am_i = imu.who_am_i().expect("could not read WHO_AM_I");
+    let gyro_rate = mpu9250::GyroTempDataRate::DlpfConf(mpu9250::Dlpf::_0);
+    let mut imu = Mpu9250::imu(
+        spi,
+        cs,
+        &mut delay,
+        MpuConfig::imu()
+            .gyro_temp_data_rate(gyro_rate)
+            .sample_rate_divisor(3)
+    ).expect("Could not initialize IMU");
+
+    let who_am_i = imu.who_am_i().expect("Could not read WHO_AM_I");
     println!("WHO_AM_I: 0x{:x}", who_am_i);
 
     let mut flag_serialize = PinDriver::output(peripherals.pins.gpio21)?;
