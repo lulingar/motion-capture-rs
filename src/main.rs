@@ -84,7 +84,7 @@ fn main() -> Result<()> {
     let notification = Notification::new();
     let notifier = notification.notifier();
 
-    const IMU_SAMPLE_PERIOD: Duration = Duration::from_millis(10);
+    const IMU_SAMPLE_PERIOD: Duration = Duration::from_millis(5);
 
     let timer_service = EspTaskTimerService::new()?;
     let callback_timer = timer_service.timer(move || unsafe {
@@ -111,23 +111,23 @@ fn main() -> Result<()> {
         // TODO read up on the "turbofish" operator below
         let all = imu.all::<[f32; 3]>().map_err(|err| anyhow!("Error: {:?}", err))?;
         flag_acquire.set_low()?;
-        flag_serialize.set_high()?;
         let now = Instant::now();
         let usecs = now.duration_since(last).as_micros();
         last = now;
-        println!(
-            "{},{},{},{},{},{},{},{},{}",
-            id,
-            usecs,
-            all.accel[0],
-            all.accel[1],
-            all.accel[2],
-            all.gyro[0],
-            all.gyro[1],
-            all.gyro[2],
-            all.temp
-        );
+        if id % 20 == 0 {
+            println!(
+                "{},{},{},{},{},{},{},{},{}",
+                id,
+                usecs,
+                all.accel[0],
+                all.accel[1],
+                all.accel[2],
+                all.gyro[0],
+                all.gyro[1],
+                all.gyro[2],
+                all.temp
+            );
+        }
         id += 1;
-        flag_serialize.set_low()?;
     }
 }
