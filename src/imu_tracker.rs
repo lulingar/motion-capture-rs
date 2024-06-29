@@ -46,8 +46,6 @@ impl ImuTracker {
         // Gets heading in units of degrees
         self.euler = self.fusion.euler();
         self.accel = self.fusion.earth_acc();
-        self.velocity += self.accel * 9.81 * delta;
-        self.position += self.velocity * delta;
     }
 
     pub fn latest_sampling_deviation(&self) -> f32 {
