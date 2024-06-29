@@ -59,10 +59,8 @@ impl ImuTracker {
         let delta = time.duration_since(self.time).as_secs_f32();
         self.time = time;
         self.latest_delta = delta;
+        self.fusion.update_no_mag_by_duration_seconds(imu_gyro, imu_accel, delta);
 
-        //fusion.update_no_mag(gyro_vector, acceleration_vector, timestamp);
-        self.fusion
-            .update_no_mag_by_duration_seconds(imu_gyro, imu_accel, delta);
 
         // Gets heading in units of degrees
         self.euler = self.fusion.euler();
