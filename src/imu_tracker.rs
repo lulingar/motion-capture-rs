@@ -3,14 +3,14 @@ use imu_fusion::{Fusion, FusionAhrsSettings, FusionEuler, FusionVector};
 use std::time::Instant;
 
 pub struct ImuTracker {
-    pub sampling_period: Duration,
     time: Instant,
+    pub fusion: Fusion,
     pub euler: FusionEuler,
-    pub accel: FusionVector,
+    pub latest_delta: f32,
+    pub earth_accel: FusionVector,
+    pub linear_accel: FusionVector,
     pub velocity: FusionVector,
     pub position: FusionVector,
-    fusion: Fusion,
-    pub latest_delta: f32,
 }
 
 impl ImuTracker {
@@ -20,14 +20,14 @@ impl ImuTracker {
         let fusion = Fusion::new(sampling_freq as u32, ahrs_settings);
 
         Self {
-            sampling_period,
             time: now,
+            fusion,
             euler: FusionEuler::zero(),
-            accel: FusionVector::zero(),
+            latest_delta: 0f32,
+            earth_accel: FusionVector::zero(),
+            linear_accel: FusionVector::zero(),
             velocity: FusionVector::zero(),
             position: FusionVector::zero(),
-            fusion,
-            latest_delta: 0f32,
         }
     }
 
