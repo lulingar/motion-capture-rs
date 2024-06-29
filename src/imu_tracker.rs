@@ -31,12 +31,11 @@ impl ImuTracker {
         }
     }
 
-    pub fn update(&mut self, imu_accel: FusionVector, imu_gyro: FusionVector) {
-        // Gets: acceleration in units of earth gravity
+    pub fn update(&mut self, time: Instant, imu_accel: FusionVector, imu_gyro: FusionVector) {
+        // Gets: acceleration in units of standard gravity
         //       angular rotation in degrees/sec
-        let now = Instant::now();
-        let delta = now.duration_since(self.time).as_secs_f32();
-        self.time = now;
+        let delta = time.duration_since(self.time).as_secs_f32();
+        self.time = time;
         self.latest_delta = delta;
 
         //fusion.update_no_mag(gyro_vector, acceleration_vector, timestamp);
