@@ -67,8 +67,31 @@ impl ImuTracker {
     pub fn compute(&mut self, imu_accel: FusionVector, delta_t: f32) {
         // Gets heading in units of degrees
         self.euler = self.fusion.euler();
+
+        /* These doesn't seem to work well on the imu-rs implementation
+        self.earth_accel = self.fusion.ahrs.earth_acc();
+        self.linear_acc = self.fusion.ahrs.linear_acc();
+         */
+        let q = self.fusion.quaternion();
+        self.earth_accel = rotate(imu_accel, q);
+
+        self.linear_accel.x = self.earth_accel.x * 9.807;
+        self.linear_accel.y = self.earth_accel.y * 9.807;
+        self.linear_accel.z = (self.earth_accel.z - 1.) * 9.807;
     }
 
 }
+
+fn conjugate(q: &FusionQuaternion) -> FusionQuaternion {
+    FusionQuaternion {
+        w: q.w, x: -q.x, y: -q.y, z: -q.z
+    }
+}
+
+fn rotate(vec: FusionVector, q: FusionQuaternion) -> FusionVector {
+    let qn = q.normalize();
+    let rot_q = (qn * vec) * conjugate(&qn);
+    FusionVector {
+        x: rot_q.x, y: rot_q.y, z: rot_q.z
     }
 }

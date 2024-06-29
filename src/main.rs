@@ -109,7 +109,6 @@ fn main() -> Result<()> {
     let gyr_offset = FusionVector::new(1.275, 1.902, -1.202);
     let mut tracker = ImuTracker::new(IMU_SAMPLE_PERIOD, Instant::now(), 2000.0f32,
                                       acc_misalignment, acc_sensitivity, acc_offset, gyr_offset);
-
     loop {
         notification.wait(esp_idf_svc::hal::delay::BLOCK);
         flag_acquire.set_high()?;
@@ -127,19 +126,52 @@ fn main() -> Result<()> {
         tracker.update(now, imu_accel, imu_gyro);
         let usecs = now.duration_since(last).as_micros();
         last = now;
-        if id % 20 == 0 {
+        // Reduce print rate to decrease CPU load
+        if id % 2 == 0 {
+
+            /* Show acceleration in Earth's frame
+            */
             println!(
-                "{},{},{},{},{},{},{},{},{}",
+                "{:.3},{:.3},{:.3}",
+                tracker.linear_accel.x,
+                tracker.linear_accel.y,
+                tracker.linear_accel.z,
+            )
+
+            /* Show quaternion and raw accel vector
+            let q = tracker.fusion.quaternion();
+            println!(
+                "{:.5},{:.5},{:.5},{:.5},{:.5},{:.5},{:.5}",
+                q.w, q.x, q.y, q.z,
+                imu_accel.x, imu_accel.y, imu_accel.z
+            )
+            */
+
+            /* Show Euler Angles
+            println!(
+                "{:.2},{:.2},{:.2}",
+                tracker.euler.angle.roll,
+                tracker.euler.angle.pitch,
+                tracker.euler.angle.yaw,
+            )
+            */
+            /* Show many things
+            println!(
+                "{},{},{:.1},{:.1},{:.1},[{:.3},{:.3},{:.3}],{:.3},{},{},{}",
                 id,
                 usecs,
-                all.accel[0],
-                all.accel[1],
-                all.accel[2],
-                all.gyro[0],
-                all.gyro[1],
-                all.gyro[2],
-                all.temp
+                tracker.euler.angle.roll,
+                tracker.euler.angle.pitch,
+                tracker.euler.angle.yaw,
+                tracker.fusion.offset.gyroscope_offset.x,
+                tracker.fusion.offset.gyroscope_offset.y,
+                tracker.fusion.offset.gyroscope_offset.z,
+                tracker.linear_acc.magnitude(),
+                tracker.position.x * 100., // Display in cm
+                tracker.position.y * 100.,
+                tracker.position.z * 100.,
             );
+            */
         }
         id += 1;
     }
