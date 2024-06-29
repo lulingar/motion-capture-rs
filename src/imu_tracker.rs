@@ -1,6 +1,7 @@
 use core::time::Duration;
-use imu_fusion::{Fusion, FusionAhrsSettings, FusionEuler, FusionVector};
 use std::time::Instant;
+use imu_fusion::{Fusion, FusionAhrsSettings, FusionConvention, FusionEuler, FusionMatrix, FusionQuaternion, FusionVector};
+use mpu9250::GyroScale;
 
 pub struct ImuTracker {
     time: Instant,
@@ -14,10 +15,31 @@ pub struct ImuTracker {
 }
 
 impl ImuTracker {
-    pub fn new(sampling_period: Duration, now: Instant) -> Self {
+    pub fn new(sampling_period: Duration, now: Instant, gyr_range: f32,
+               acc_misalignment: FusionMatrix, acc_offset: FusionVector,
+               acc_sensitivity: FusionVector, gyr_offset: FusionVector) -> Self {
+        // Set the gyroscope range in degrees/s
+
         let sampling_freq: f32 = 1000_f32 / sampling_period.subsec_millis() as f32;
-        let ahrs_settings = FusionAhrsSettings::new();
-        let fusion = Fusion::new(sampling_freq as u32, ahrs_settings);
+
+        // Set AHRS algorithm settings
+        let mut ahrs_settings = FusionAhrsSettings::new();
+        ahrs_settings.convention = FusionConvention::NWU;
+
+        /* A gain of 0.5 resulted in a strange, long transient that made the
+         * computed euler angles drift toward zero after a rotation was over.
+         */
+        ahrs_settings.gain = 0f32;
+
+        ahrs_settings.acc_rejection = 10.0f32;
+        ahrs_settings.recovery_trigger_period = 5;// * sampling_freq as i32;
+        ahrs_settings.gyr_range = gyr_range;
+
+        let mut fusion = Fusion::new(sampling_freq as u32, ahrs_settings);
+        fusion.acc_misalignment = acc_misalignment;
+        fusion.acc_sensitivity = acc_sensitivity;
+        fusion.acc_offset = acc_offset;
+        fusion.gyr_offset = gyr_offset;
 
         Self {
             time: now,
