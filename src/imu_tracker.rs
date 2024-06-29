@@ -61,13 +61,14 @@ impl ImuTracker {
         self.latest_delta = delta;
         self.fusion.update_no_mag_by_duration_seconds(imu_gyro, imu_accel, delta);
 
-
-        // Gets heading in units of degrees
-        self.euler = self.fusion.euler();
-        self.accel = self.fusion.earth_acc();
+        self.compute(imu_accel, delta);
     }
 
-    pub fn latest_sampling_deviation(&self) -> f32 {
-        self.latest_delta / self.sampling_period.as_secs_f32()
+    pub fn compute(&mut self, imu_accel: FusionVector, delta_t: f32) {
+        // Gets heading in units of degrees
+        self.euler = self.fusion.euler();
+    }
+
+}
     }
 }
