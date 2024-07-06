@@ -12,7 +12,6 @@ pub enum MovementDirection {
     Diagonal,
 }
 
-
 struct Smoothing {
     measurements: VecDeque<FusionVector>,
     smoothing_window_size: usize,
@@ -114,8 +113,8 @@ impl AverageMovementComputation {
     fn compute_average_detection_accel(&self) -> (f32, f32) {
         let mean_horizontal = self.horizontal_measurements.iter().sum::<f32>()
             / self.horizontal_measurements.len() as f32;
-        let mean_vertical = self.horizontal_measurements.iter().sum::<f32>()
-            / self.horizontal_measurements.len() as f32;
+        let mean_vertical = self.vertical_measurements.iter().sum::<f32>()
+            / self.vertical_measurements.len() as f32;
 
         return (mean_horizontal, mean_vertical);
     }
