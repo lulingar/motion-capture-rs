@@ -25,7 +25,8 @@ impl Smoothing {
         }
         let sv = self.compute_smoothing_vector();
         self.measurements.push_back(linear_acceleration);
-        return linear_acceleration - sv;
+
+        linear_acceleration - sv
     }
 
     fn compute_smoothing_vector(&self) -> FusionVector {
@@ -38,7 +39,8 @@ impl Smoothing {
             sum_z += m.z;
         }
         let num_elems = self.measurements.len() as f32;
-        return FusionVector::new(sum_x / num_elems, sum_y / num_elems, sum_z / num_elems);
+
+        FusionVector::new(sum_x / num_elems, sum_y / num_elems, sum_z / num_elems)
     }
 }
 
@@ -80,7 +82,7 @@ impl MovementDetection {
     }
 
     fn below_acceleration_threshold(&self, x_accel: f32, y_accel: f32) -> bool {
-        return x_accel < self.acceleration_threshold && y_accel < self.acceleration_threshold;
+        x_accel < self.acceleration_threshold && y_accel < self.acceleration_threshold
     }
 }
 
@@ -91,12 +93,12 @@ struct AverageMovementComputation {
 }
 
 impl AverageMovementComputation {
-    fn new(detection_window_size: usize) -> AverageMovementComputation {
-        return AverageMovementComputation {
+    fn new(detection_window_size: usize) -> Self {
+        Self {
             detection_window_size,
             horizontal_measurements: VecDeque::with_capacity(detection_window_size),
             vertical_measurements:  VecDeque::with_capacity(detection_window_size)
-        };
+        }
     }
     fn add_measurement(&mut self, x: f32, y: f32) -> (f32, f32) {
         if self.horizontal_measurements.len() >= self.detection_window_size {
@@ -107,16 +109,16 @@ impl AverageMovementComputation {
         self.horizontal_measurements.push_back(x);
         self.vertical_measurements.push_back(y);
 
-        return self.compute_average_detection_accel();
+        self.compute_average_detection_accel()
     }
 
     fn compute_average_detection_accel(&self) -> (f32, f32) {
         let mean_horizontal = self.horizontal_measurements.iter().sum::<f32>()
             / self.horizontal_measurements.len() as f32;
         let mean_vertical = self.vertical_measurements.iter().sum::<f32>()
-            / self.vertical_measurements.len() as f32;
+            / self.horizontal_measurements.len() as f32;
 
-        return (mean_horizontal, mean_vertical);
+        (mean_horizontal, mean_vertical)
     }
 
     fn has_sufficient_measurements(&self) -> bool {
@@ -137,8 +139,8 @@ struct QuantileMovementComputation {
 
 impl QuantileMovementComputation {
 
-    fn new(detection_window_size: usize) -> AverageMovementComputation {
-        return AverageMovementComputation {
+    fn new(detection_window_size: usize) -> Self {
+        Self {
             detection_window_size,
             horizontal_measurements: VecDeque::with_capacity(detection_window_size),
             vertical_measurements:  VecDeque::with_capacity(detection_window_size)
@@ -154,12 +156,12 @@ impl QuantileMovementComputation {
         self.horizontal_measurements.push_back(x);
         self.vertical_measurements.push_back(y);
 
-        return self.compute_quantile_detection_accel();
+        self.compute_quantile_detection_accel()
     }
 
     fn compute_quantile_detection_accel(&mut self) -> (f32, f32) {
         if self.horizontal_measurements.len() == 0 {
-            return (0.0,0.0);
+            return (0.0, 0.0);
         }
         self.horizontal_measurements_buffer.clear();
         self.horizontal_measurements_buffer.extend(self.horizontal_measurements.iter());
@@ -168,8 +170,8 @@ impl QuantileMovementComputation {
         self.vertical_measurements_buffer.extend(self.vertical_measurements.iter());
         self.vertical_measurements_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let pos = (self.horizontal_measurements_buffer.len() as f32 * QUANTILE) as usize;
-        
-        return (self.horizontal_measurements_buffer[pos], self.vertical_measurements_buffer[pos]);
+
+        (self.horizontal_measurements_buffer[pos], self.vertical_measurements_buffer[pos])
     }
 
     fn has_sufficient_measurements(&self) -> bool {
@@ -187,7 +189,7 @@ impl Default for Analysis {
     fn default() -> Self {
         let diagonal_low = PI / 4.0 - PI / 8.0;
         let diagonal_high = 1.1 * PI / 4.0;
-        return Analysis::new(100, 30, 1.5, diagonal_low, diagonal_high);
+        Analysis::new(100, 30, 1.5, diagonal_low, diagonal_high)
     }
 }
 
@@ -227,6 +229,6 @@ impl Analysis {
         let x = (smoothed.x * smoothed.x + smoothed.y * smoothed.y).sqrt(); // compute euclidean norm of x and y component
         let y = smoothed.z.abs();
 
-        return self.movement_detection.add_measurement(x, y);
+        self.movement_detection.add_measurement(x, y)
     }
 }
