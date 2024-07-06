@@ -137,56 +137,6 @@ fn main() -> Result<()> {
             if let Some(dir) = direction {
                 println!("{} {:?}", id, dir);
             }
-        let usecs = now.duration_since(last).as_micros();
-        last = now;
-        // Reduce print rate to decrease CPU load
-        if id % 2 == 0 {
-
-            /* Show acceleration in Earth's frame
-            */
-            println!(
-                "{:.3},{:.3},{:.3}",
-                tracker.linear_accel.x,
-                tracker.linear_accel.y,
-                tracker.linear_accel.z,
-            );
-
-            let direction = analysis.add_measurement(tracker.linear_accel);
-
-            /* Show quaternion and raw accel vector
-            let q = tracker.fusion.quaternion();
-            println!(
-                "{:.5},{:.5},{:.5},{:.5},{:.5},{:.5},{:.5}",
-                q.w, q.x, q.y, q.z,
-                imu_accel.x, imu_accel.y, imu_accel.z
-            )
-            */
-
-            /* Show Euler Angles
-            println!(
-                "{:.2},{:.2},{:.2}",
-                tracker.euler.angle.roll,
-                tracker.euler.angle.pitch,
-                tracker.euler.angle.yaw,
-            )
-            */
-            /* Show many things
-            println!(
-                "{},{},{:.1},{:.1},{:.1},[{:.3},{:.3},{:.3}],{:.3},{},{},{}",
-                id,
-                usecs,
-                tracker.euler.angle.roll,
-                tracker.euler.angle.pitch,
-                tracker.euler.angle.yaw,
-                tracker.fusion.offset.gyroscope_offset.x,
-                tracker.fusion.offset.gyroscope_offset.y,
-                tracker.fusion.offset.gyroscope_offset.z,
-                tracker.linear_acc.magnitude(),
-                tracker.position.x * 100., // Display in cm
-                tracker.position.y * 100.,
-                tracker.position.z * 100.,
-            );
-            */
         }
         id += 1;
     }
