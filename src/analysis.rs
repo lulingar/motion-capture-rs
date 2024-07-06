@@ -63,7 +63,7 @@ impl MovementDetection {
         self.horizontal_measurements.push_back(x);
         self.vertical_measurements.push_back(y);
 
-        None
+        self.compute_direction()
     }
 
     fn compute_direction(&mut self) -> Option<MovementDirection> {
