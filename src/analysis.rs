@@ -119,10 +119,6 @@ impl AverageMovementComputation {
 
         (mean_horizontal, mean_vertical)
     }
-
-    fn has_sufficient_measurements(&self) -> bool {
-        self.detection_window_size >= self.horizontal_measurements.len()
-    }
 }
 
 const QUANTILE: f32 = 0.75;
@@ -248,10 +244,21 @@ fn test_simple_quantile_movement_computation() {
     }
 }
 
+
+#[test]
+fn test_simple_quantile_movement_computation() {
+    let mut movement_detection = QuantileMovementComputation::new(30);
+
+    for i in 0..100 {
+        let movement = movement_detection.add_measurement(0.0, 0.0);
+        assert_eq!(movement, (0.0, 0.0));
+    }
+}
+
 fn no_invalid_float(f: f32) -> f32 {
     if f.is_normal() {
         f
     } else {
-        o
+        0.0
     }
 }
