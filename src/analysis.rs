@@ -1,6 +1,10 @@
 use imu_fusion::FusionVector;
 use std::{collections::VecDeque, f32::consts::PI};
 
+
+// type MovementComputation = QuantileMovementComputation;
+type MovementComputation = AverageMovementComputation;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MovementDirection {
     Horizontal,
@@ -8,10 +12,6 @@ pub enum MovementDirection {
     Diagonal,
 }
 
-pub struct Analysis {
-    smoothing: Smoothing,
-    movement_detection: MovementDetection,
-}
 
 struct Smoothing {
     measurements: VecDeque<FusionVector>,
@@ -44,9 +44,7 @@ impl Smoothing {
 }
 
 struct MovementDetection {
-    horizontal_measurements: VecDeque<f32>,
-    vertical_measurements: VecDeque<f32>,
-    detection_window_size: usize,
+    movement_computation: AverageMovementComputation,
     acceleration_threshold: f32,
     angle_low_threshold: f32,
     angle_high_threshold: f32,
@@ -55,25 +53,8 @@ struct MovementDetection {
 
 impl MovementDetection {
     fn add_measurement(&mut self, x: f32, y: f32) -> Option<MovementDirection> {
-        if self.horizontal_measurements.len() >= self.detection_window_size {
-            self.horizontal_measurements.pop_front();
-            self.vertical_measurements.pop_front();
-        }
-
-        self.horizontal_measurements.push_back(x);
-        self.vertical_measurements.push_back(y);
-
-        self.compute_direction()
-    }
-
-    fn compute_direction(&mut self) -> Option<MovementDirection> {
-        if self.horizontal_measurements.len() < self.detection_window_size {
-            return None;
-        }
-
-        let (x, y) = self.compute_average_detection_accel();
-
-        return self.next_direction(x, y);
+        let (x, y) = self.movement_computation.add_measurement(x, y);
+        self.next_direction(x, y)
     }
 
     fn next_direction(&mut self, x_accel: f32, y_accel: f32) -> Option<MovementDirection> {
@@ -102,14 +83,105 @@ impl MovementDetection {
     fn below_acceleration_threshold(&self, x_accel: f32, y_accel: f32) -> bool {
         return x_accel < self.acceleration_threshold && y_accel < self.acceleration_threshold;
     }
+}
+
+struct AverageMovementComputation {
+    horizontal_measurements: VecDeque<f32>,
+    vertical_measurements: VecDeque<f32>,
+    detection_window_size: usize,
+}
+
+impl AverageMovementComputation {
+    fn new(detection_window_size: usize) -> AverageMovementComputation {
+        return AverageMovementComputation {
+            detection_window_size,
+            horizontal_measurements: VecDeque::with_capacity(detection_window_size),
+            vertical_measurements:  VecDeque::with_capacity(detection_window_size)
+        };
+    }
+    fn add_measurement(&mut self, x: f32, y: f32) -> (f32, f32) {
+        if self.horizontal_measurements.len() >= self.detection_window_size {
+            self.horizontal_measurements.pop_front();
+            self.vertical_measurements.pop_front();
+        }
+
+        self.horizontal_measurements.push_back(x);
+        self.vertical_measurements.push_back(y);
+
+        return self.compute_average_detection_accel();
+    }
 
     fn compute_average_detection_accel(&self) -> (f32, f32) {
-        let mean_horizontal = self.horizontal_measurements.iter().sum::<f32>() / self.horizontal_measurements.len() as f32;
-        let mean_vertical = self.horizontal_measurements.iter().sum::<f32>() / self.horizontal_measurements.len() as f32;
+        let mean_horizontal = self.horizontal_measurements.iter().sum::<f32>()
+            / self.horizontal_measurements.len() as f32;
+        let mean_vertical = self.horizontal_measurements.iter().sum::<f32>()
+            / self.horizontal_measurements.len() as f32;
 
         return (mean_horizontal, mean_vertical);
     }
 
+    fn has_sufficient_measurements(&self) -> bool {
+        self.detection_window_size >= self.horizontal_measurements.len()
+    }
+}
+
+const QUANTILE: f32 =0.75;
+
+struct QuantileMovementComputation {
+    horizontal_measurements: VecDeque<f32>,
+    vertical_measurements: VecDeque<f32>,
+
+    horizontal_measurements_buffer: Vec<f32>,
+    vertical_measurements_buffer: Vec<f32>,
+    detection_window_size: usize,
+}
+
+impl QuantileMovementComputation {
+
+    fn new(detection_window_size: usize) -> AverageMovementComputation {
+        return AverageMovementComputation {
+            detection_window_size,
+            horizontal_measurements: VecDeque::with_capacity(detection_window_size),
+            vertical_measurements:  VecDeque::with_capacity(detection_window_size)
+        };
+    }
+
+    fn add_measurement(&mut self, x: f32, y: f32) -> (f32, f32) {
+        if self.horizontal_measurements.len() >= self.detection_window_size {
+            self.horizontal_measurements.pop_front();
+            self.vertical_measurements.pop_front();
+        }
+
+        self.horizontal_measurements.push_back(x);
+        self.vertical_measurements.push_back(y);
+
+        return self.compute_quantile_detection_accel();
+    }
+
+    fn compute_quantile_detection_accel(&mut self) -> (f32, f32) {
+        if self.horizontal_measurements.len() == 0 {
+            return (0.0,0.0);
+        }
+        self.horizontal_measurements_buffer.clear();
+        self.horizontal_measurements_buffer.extend(self.horizontal_measurements.iter());
+        self.horizontal_measurements_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        self.vertical_measurements_buffer.clear();
+        self.vertical_measurements_buffer.extend(self.vertical_measurements.iter());
+        self.vertical_measurements_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let pos = (self.horizontal_measurements_buffer.len() as f32 * QUANTILE) as usize;
+        
+        return (self.horizontal_measurements_buffer[pos], self.vertical_measurements_buffer[pos]);
+    }
+
+    fn has_sufficient_measurements(&self) -> bool {
+        self.detection_window_size >= self.horizontal_measurements.len()
+    }
+}
+
+
+pub struct Analysis {
+    smoothing: Smoothing,
+    movement_detection: MovementDetection,
 }
 
 impl Default for Analysis {
@@ -138,9 +210,7 @@ impl Analysis {
                 smoothing_window_size,
             },
             movement_detection: MovementDetection {
-                horizontal_measurements: VecDeque::with_capacity(detection_window_size),
-                vertical_measurements: VecDeque::with_capacity(detection_window_size),
-                detection_window_size,
+                movement_computation: MovementComputation::new(detection_window_size),
                 acceleration_threshold,
                 angle_low_threshold,
                 angle_high_threshold,
@@ -149,7 +219,10 @@ impl Analysis {
         }
     }
 
-    pub fn add_measurement(&mut self, linear_acceleration: FusionVector) -> Option<MovementDirection> {
+    pub fn add_measurement(
+        &mut self,
+        linear_acceleration: FusionVector,
+    ) -> Option<MovementDirection> {
         let smoothed = self.smoothing.add_measurement(linear_acceleration);
 
         let x = (smoothed.x * smoothed.x + smoothed.y * smoothed.y).sqrt(); // compute euclidean norm of x and y component
@@ -157,5 +230,4 @@ impl Analysis {
 
         return self.movement_detection.add_measurement(x, y);
     }
-
 }
