@@ -59,26 +59,26 @@ impl MovementDetection {
     }
 
     fn next_direction(&mut self, x_accel: f32, y_accel: f32) -> Option<MovementDirection> {
-        if self.prev_direction.is_some() && self.below_acceleration_threshold(x_accel, y_accel) {
-            self.prev_direction = None;
-            return None;
-        } else if self.prev_direction.is_some() {
-            return self.prev_direction;
-        }
+        let mut next_state = self.prev_direction;
+        let below_thres = self.below_acceleration_threshold(x_accel, y_accel);
 
-        let angle = f32::atan2(x_accel, y_accel);
-
-        if !self.below_acceleration_threshold(x_accel, y_accel) {
-            self.prev_direction =
-                if self.angle_low_threshold < angle && angle < self.angle_high_threshold {
+        if self.prev_direction.is_none() {
+            if !below_thres {
+                let angle = y_accel.atan2(x_accel);
+                next_state = if self.angle_low_threshold < angle && angle < self.angle_high_threshold {
                     Some(MovementDirection::Diagonal)
                 } else if angle < self.angle_low_threshold {
                     Some(MovementDirection::Horizontal)
                 } else {
                     Some(MovementDirection::Vertical)
                 };
+            }
         }
-        return self.prev_direction;
+        else if below_thres {
+            next_state = None;
+        }
+        self.prev_direction = next_state;
+        next_state
     }
 
     fn below_acceleration_threshold(&self, x_accel: f32, y_accel: f32) -> bool {
