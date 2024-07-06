@@ -1,7 +1,6 @@
 use imu_fusion::FusionVector;
 use std::{collections::VecDeque, f32::consts::PI};
 
-
 type MovementComputation = QuantileMovementComputation;
 // type MovementComputation = AverageMovementComputation;
 
@@ -65,16 +64,16 @@ impl MovementDetection {
         if self.prev_direction.is_none() {
             if !below_thres {
                 let angle = y_accel.atan2(x_accel);
-                next_state = if self.angle_low_threshold < angle && angle < self.angle_high_threshold {
-                    Some(MovementDirection::Diagonal)
-                } else if angle < self.angle_low_threshold {
-                    Some(MovementDirection::Horizontal)
-                } else {
-                    Some(MovementDirection::Vertical)
-                };
+                next_state =
+                    if self.angle_low_threshold < angle && angle < self.angle_high_threshold {
+                        Some(MovementDirection::Diagonal)
+                    } else if angle < self.angle_low_threshold {
+                        Some(MovementDirection::Horizontal)
+                    } else {
+                        Some(MovementDirection::Vertical)
+                    };
             }
-        }
-        else if below_thres {
+        } else if below_thres {
             next_state = None;
         }
         self.prev_direction = next_state;
@@ -97,7 +96,7 @@ impl AverageMovementComputation {
         Self {
             detection_window_size,
             horizontal_measurements: VecDeque::with_capacity(detection_window_size),
-            vertical_measurements:  VecDeque::with_capacity(detection_window_size)
+            vertical_measurements: VecDeque::with_capacity(detection_window_size),
         }
     }
     fn add_measurement(&mut self, x: f32, y: f32) -> (f32, f32) {
@@ -126,7 +125,7 @@ impl AverageMovementComputation {
     }
 }
 
-const QUANTILE: f32 =0.75;
+const QUANTILE: f32 = 0.75;
 
 struct QuantileMovementComputation {
     horizontal_measurements: VecDeque<f32>,
@@ -137,14 +136,13 @@ struct QuantileMovementComputation {
 }
 
 impl QuantileMovementComputation {
-
     fn new(detection_window_size: usize) -> Self {
         Self {
             detection_window_size,
             horizontal_measurements: VecDeque::with_capacity(detection_window_size),
-            vertical_measurements:  VecDeque::with_capacity(detection_window_size),
+            vertical_measurements: VecDeque::with_capacity(detection_window_size),
             horizontal_measurements_buffer: Vec::with_capacity(detection_window_size),
-            vertical_measurements_buffer:  Vec::with_capacity(detection_window_size),
+            vertical_measurements_buffer: Vec::with_capacity(detection_window_size),
         }
     }
 
@@ -165,21 +163,27 @@ impl QuantileMovementComputation {
             return (0.0, 0.0);
         }
         self.horizontal_measurements_buffer.clear();
-        self.horizontal_measurements_buffer.extend(self.horizontal_measurements.iter());
-        self.horizontal_measurements_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        self.horizontal_measurements_buffer
+            .extend(self.horizontal_measurements.iter());
+        self.horizontal_measurements_buffer
+            .sort_by(|a, b| a.partial_cmp(b).unwrap());
         self.vertical_measurements_buffer.clear();
-        self.vertical_measurements_buffer.extend(self.vertical_measurements.iter());
-        self.vertical_measurements_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        self.vertical_measurements_buffer
+            .extend(self.vertical_measurements.iter());
+        self.vertical_measurements_buffer
+            .sort_by(|a, b| a.partial_cmp(b).unwrap());
         let pos = (self.horizontal_measurements_buffer.len() as f32 * QUANTILE) as usize;
 
-        (self.horizontal_measurements_buffer[pos], self.vertical_measurements_buffer[pos])
+        (
+            self.horizontal_measurements_buffer[pos],
+            self.vertical_measurements_buffer[pos],
+        )
     }
 
     fn has_sufficient_measurements(&self) -> bool {
         self.detection_window_size >= self.horizontal_measurements.len()
     }
 }
-
 
 pub struct Analysis {
     smoothing: Smoothing,
@@ -231,5 +235,15 @@ impl Analysis {
         let y = smoothed.z.abs();
 
         self.movement_detection.add_measurement(x, y)
+    }
+}
+
+#[test]
+fn test_simple_quantile_movement_computation() {
+    let mut movement_detection = QuantileMovementComputation::new(30);
+
+    for i in 0..100 {
+        let movement = movement_detection.add_measurement(0.0, 0.0);
+        assert_eq!(movement, (0.0, 0.0));
     }
 }
