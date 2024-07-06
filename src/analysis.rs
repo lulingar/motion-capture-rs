@@ -202,7 +202,7 @@ impl Analysis {
     ) -> Analysis {
         assert!(smoothing_window_size > 0);
         assert!(detection_window_size > 0);
-        assert!(detection_window_size > smoothing_window_size);
+        assert!(detection_window_size < smoothing_window_size);
 
         Analysis {
             smoothing: Smoothing {
