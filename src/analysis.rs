@@ -175,10 +175,6 @@ impl QuantileMovementComputation {
             self.vertical_measurements_buffer[pos],
         )
     }
-
-    fn has_sufficient_measurements(&self) -> bool {
-        self.detection_window_size >= self.horizontal_measurements.len()
-    }
 }
 
 pub struct Analysis {
