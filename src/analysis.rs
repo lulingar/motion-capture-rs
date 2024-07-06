@@ -105,8 +105,8 @@ impl AverageMovementComputation {
             self.vertical_measurements.pop_front();
         }
 
-        self.horizontal_measurements.push_back(x);
-        self.vertical_measurements.push_back(y);
+        self.horizontal_measurements.push_back(no_invalid_float(x));
+        self.vertical_measurements.push_back(no_invalid_float(y));
 
         self.compute_average_detection_accel()
     }
@@ -152,8 +152,8 @@ impl QuantileMovementComputation {
             self.vertical_measurements.pop_front();
         }
 
-        self.horizontal_measurements.push_back(x);
-        self.vertical_measurements.push_back(y);
+        self.horizontal_measurements.push_back(no_invalid_float(x));
+        self.vertical_measurements.push_back(no_invalid_float(y));
 
         self.compute_quantile_detection_accel()
     }
@@ -245,5 +245,13 @@ fn test_simple_quantile_movement_computation() {
     for i in 0..100 {
         let movement = movement_detection.add_measurement(0.0, 0.0);
         assert_eq!(movement, (0.0, 0.0));
+    }
+}
+
+fn no_invalid_float(f: f32) -> f32 {
+    if f.is_normal() {
+        f
+    } else {
+        o
     }
 }
