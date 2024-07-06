@@ -1,7 +1,6 @@
 use core::time::Duration;
 use std::time::Instant;
 use imu_fusion::{Fusion, FusionAhrsSettings, FusionConvention, FusionEuler, FusionMatrix, FusionQuaternion, FusionVector};
-use mpu9250::GyroScale;
 
 pub struct ImuTracker {
     time: Instant,
@@ -10,8 +9,6 @@ pub struct ImuTracker {
     pub latest_delta: f32,
     pub earth_accel: FusionVector,
     pub linear_accel: FusionVector,
-    pub velocity: FusionVector,
-    pub position: FusionVector,
 }
 
 impl ImuTracker {
@@ -48,8 +45,6 @@ impl ImuTracker {
             latest_delta: 0f32,
             earth_accel: FusionVector::zero(),
             linear_accel: FusionVector::zero(),
-            velocity: FusionVector::zero(),
-            position: FusionVector::zero(),
         }
     }
 
