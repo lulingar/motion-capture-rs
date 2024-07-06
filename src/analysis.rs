@@ -222,11 +222,22 @@ impl Analysis {
         linear_acceleration: FusionVector,
     ) -> Option<MovementDirection> {
         let smoothed = self.smoothing.add_measurement(linear_acceleration);
-
+        assert!(smoothed.x.is_normal());
+        assert!(smoothed.y.is_normal());
+        assert!(smoothed.z.is_normal());
         let x = (smoothed.x * smoothed.x + smoothed.y * smoothed.y).sqrt(); // compute euclidean norm of x and y component
         let y = smoothed.z.abs();
 
-        self.movement_detection.add_measurement(x, y)
+        self.movement_detection.add_measurement(nan_as_zero(x), nan_as_zero(y))
+    }
+}
+
+fn nan_as_zero(val: f32) -> f32 {
+    if !val.is_normal() {
+        0.0
+    }
+    else {
+        val
     }
 }
 
