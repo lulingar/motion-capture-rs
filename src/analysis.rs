@@ -19,10 +19,10 @@ struct Smoothing {
 impl Smoothing {
     // Adds a measurement and returns smoothed value
     fn add_measurement(&mut self, linear_acceleration: FusionVector) -> FusionVector {
+        let sv = self.compute_smoothing_vector();
         if self.measurements.len() >= self.smoothing_window_size {
             self.measurements.pop_front();
         }
-        let sv = self.compute_smoothing_vector();
         self.measurements.push_back(linear_acceleration);
 
         linear_acceleration - sv
@@ -159,12 +159,12 @@ impl QuantileMovementComputation {
     }
 
     fn compute_quantile_detection_accel(&mut self) -> (f32, f32) {
-        if self.horizontal_measurements.len() == 0 {
-            return (0.0, 0.0);
-        }
-        self.horizontal_measurements_buffer.clear();
+        assert!(self.horizontal_measurements.len() >0);
+        assert!(self.vertical_measurements.len() == self.horizontal_measurements.len());
+
+        self.horizontal_measurements_buffer.clear(); // remove all elements
         self.horizontal_measurements_buffer
-            .extend(self.horizontal_measurements.iter());
+            .extend(self.horizontal_measurements.iter()); // add all elements of actual measurements
         self.horizontal_measurements_buffer
             .sort_by(|a, b| a.partial_cmp(b).unwrap());
         self.vertical_measurements_buffer.clear();
