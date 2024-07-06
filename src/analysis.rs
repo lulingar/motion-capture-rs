@@ -9,8 +9,43 @@ pub enum MovementDirection {
 }
 
 pub struct Analysis {
+    smoothing: Smoothing,
+    movement_detection: MovementDetection,
+}
+
+struct Smoothing {
     measurements: VecDeque<FusionVector>,
     smoothing_window_size: usize,
+}
+
+impl Smoothing {
+    // Adds a measurement and returns smoothed value
+    fn add_measurement(&mut self, linear_acceleration: FusionVector) -> FusionVector {
+        if self.measurements.len() >= self.smoothing_window_size {
+            self.measurements.pop_front();
+        }
+        let sv = self.compute_smoothing_vector();
+        self.measurements.push_back(linear_acceleration);
+        return linear_acceleration - sv;
+    }
+
+    fn compute_smoothing_vector(&self) -> FusionVector {
+        let mut sum_x = 0.0;
+        let mut sum_y = 0.0;
+        let mut sum_z = 0.0;
+        for m in &self.measurements {
+            sum_x += m.x;
+            sum_y += m.y;
+            sum_z += m.z;
+        }
+        let num_elems = self.measurements.len() as f32;
+        return FusionVector::new(sum_x / num_elems, sum_y / num_elems, sum_z / num_elems);
+    }
+}
+
+struct MovementDetection {
+    horizontal_measurements: VecDeque<f32>,
+    vertical_measurements: VecDeque<f32>,
     detection_window_size: usize,
     acceleration_threshold: f32,
     angle_low_threshold: f32,
@@ -18,48 +53,21 @@ pub struct Analysis {
     prev_direction: Option<MovementDirection>,
 }
 
-impl Default for Analysis {
-    fn default() -> Self {
-        let diagonal_low = PI / 4.0 - PI / 8.0;
-        let diagonal_high = 1.1 * PI / 4.0;
-        return Analysis::new(100, 30, 1.5, diagonal_low, diagonal_high);
-    }
-}
-
-impl Analysis {
-    pub fn new(
-        smoothing_window_size: usize,
-        detection_window_size: usize,
-        acceleration_threshold: f32,
-        angle_low_threshold: f32,
-        angle_high_threshold: f32,
-    ) -> Analysis {
-        assert!(smoothing_window_size > 0);
-        assert!(detection_window_size > 0);
-        assert!(detection_window_size > smoothing_window_size);
-
-        Analysis {
-            measurements: VecDeque::with_capacity(smoothing_window_size),
-            smoothing_window_size,
-            detection_window_size,
-            acceleration_threshold,
-            angle_low_threshold,
-            angle_high_threshold,
-            prev_direction: None,
-        }
-    }
-
-    pub fn add_measurement(&mut self, earth_acc: FusionVector) -> Option<MovementDirection>  {
-        if self.measurements.len() >= self.smoothing_window_size {
-            self.measurements.pop_front();
+impl MovementDetection {
+    fn add_measurement(&mut self, x: f32, y: f32) -> Option<MovementDirection> {
+        if self.horizontal_measurements.len() >= self.detection_window_size {
+            self.horizontal_measurements.pop_front();
+            self.vertical_measurements.pop_front();
         }
 
-        self.measurements.push_back(earth_acc);
-        return self.compute_direction();
+        self.horizontal_measurements.push_back(x);
+        self.vertical_measurements.push_back(y);
+
+        None
     }
 
     fn compute_direction(&mut self) -> Option<MovementDirection> {
-        if self.measurements.len() < self.smoothing_window_size {
+        if self.horizontal_measurements.len() < self.detection_window_size {
             return None;
         }
 
@@ -96,38 +104,58 @@ impl Analysis {
     }
 
     fn compute_average_detection_accel(&self) -> (f32, f32) {
-        let smoothing_vector = self.compute_smoothing_vector();
+        let mean_horizontal = self.horizontal_measurements.iter().sum::<f32>() / self.horizontal_measurements.len() as f32;
+        let mean_vertical = self.horizontal_measurements.iter().sum::<f32>() / self.horizontal_measurements.len() as f32;
 
-        let mut sum_horizontal = 0.0;
-        let mut sum_vertical = 0.0;
-
-        for m in self
-            .measurements
-            .iter()
-            .skip(self.measurements.len() - self.smoothing_window_size)
-        {
-            let m = *m - smoothing_vector;
-            let horizontal = (m.x * m.x + m.y * m.y).sqrt(); // compute euclidean norm of x and y component
-            let vertical = m.z.abs();
-
-            sum_horizontal += horizontal;
-            sum_vertical += vertical;
-        }
-        let mean_horizontal = sum_horizontal / self.smoothing_window_size as f32;
-        let mean_vertical = sum_vertical / self.smoothing_window_size as f32;
         return (mean_horizontal, mean_vertical);
     }
 
-    fn compute_smoothing_vector(&self) -> FusionVector {
-        let mut sum_x = 0.0;
-        let mut sum_y = 0.0;
-        let mut sum_z = 0.0;
-        for m in &self.measurements {
-            sum_x += m.x;
-            sum_y += m.y;
-            sum_z += m.z;
-        }
-        let num_elems = self.measurements.len() as f32;
-        return FusionVector::new(sum_x / num_elems, sum_y / num_elems, sum_z / num_elems);
+}
+
+impl Default for Analysis {
+    fn default() -> Self {
+        let diagonal_low = PI / 4.0 - PI / 8.0;
+        let diagonal_high = 1.1 * PI / 4.0;
+        return Analysis::new(100, 30, 1.5, diagonal_low, diagonal_high);
     }
+}
+
+impl Analysis {
+    pub fn new(
+        smoothing_window_size: usize,
+        detection_window_size: usize,
+        acceleration_threshold: f32,
+        angle_low_threshold: f32,
+        angle_high_threshold: f32,
+    ) -> Analysis {
+        assert!(smoothing_window_size > 0);
+        assert!(detection_window_size > 0);
+        assert!(detection_window_size > smoothing_window_size);
+
+        Analysis {
+            smoothing: Smoothing {
+                measurements: VecDeque::with_capacity(smoothing_window_size),
+                smoothing_window_size,
+            },
+            movement_detection: MovementDetection {
+                horizontal_measurements: VecDeque::with_capacity(detection_window_size),
+                vertical_measurements: VecDeque::with_capacity(detection_window_size),
+                detection_window_size,
+                acceleration_threshold,
+                angle_low_threshold,
+                angle_high_threshold,
+                prev_direction: None,
+            },
+        }
+    }
+
+    pub fn add_measurement(&mut self, linear_acceleration: FusionVector) -> Option<MovementDirection> {
+        let smoothed = self.smoothing.add_measurement(linear_acceleration);
+
+        let x = (smoothed.x * smoothed.x + smoothed.y * smoothed.y).sqrt(); // compute euclidean norm of x and y component
+        let y = smoothed.z.abs();
+
+        return self.movement_detection.add_measurement(x, y);
+    }
+
 }
