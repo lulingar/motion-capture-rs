@@ -2,8 +2,8 @@ use imu_fusion::FusionVector;
 use std::{collections::VecDeque, f32::consts::PI};
 
 
-// type MovementComputation = QuantileMovementComputation;
-type MovementComputation = AverageMovementComputation;
+type MovementComputation = QuantileMovementComputation;
+// type MovementComputation = AverageMovementComputation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MovementDirection {
@@ -45,7 +45,7 @@ impl Smoothing {
 }
 
 struct MovementDetection {
-    movement_computation: AverageMovementComputation,
+    movement_computation: MovementComputation,
     acceleration_threshold: f32,
     angle_low_threshold: f32,
     angle_high_threshold: f32,
@@ -131,7 +131,6 @@ const QUANTILE: f32 =0.75;
 struct QuantileMovementComputation {
     horizontal_measurements: VecDeque<f32>,
     vertical_measurements: VecDeque<f32>,
-
     horizontal_measurements_buffer: Vec<f32>,
     vertical_measurements_buffer: Vec<f32>,
     detection_window_size: usize,
@@ -143,8 +142,10 @@ impl QuantileMovementComputation {
         Self {
             detection_window_size,
             horizontal_measurements: VecDeque::with_capacity(detection_window_size),
-            vertical_measurements:  VecDeque::with_capacity(detection_window_size)
-        };
+            vertical_measurements:  VecDeque::with_capacity(detection_window_size),
+            horizontal_measurements_buffer: Vec::with_capacity(detection_window_size),
+            vertical_measurements_buffer:  Vec::with_capacity(detection_window_size),
+        }
     }
 
     fn add_measurement(&mut self, x: f32, y: f32) -> (f32, f32) {
