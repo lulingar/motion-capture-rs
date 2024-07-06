@@ -32,14 +32,15 @@ impl Smoothing {
         let mut sum_x = 0.0;
         let mut sum_y = 0.0;
         let mut sum_z = 0.0;
-        for m in &self.measurements {
+        for m in self.measurements.iter() {
             sum_x += m.x;
             sum_y += m.y;
             sum_z += m.z;
         }
-        let num_elems = self.measurements.len() as f32;
 
-        FusionVector::new(sum_x / num_elems, sum_y / num_elems, sum_z / num_elems)
+        let num_elems = (if self.measurements.is_empty() { 1 } else { self.measurements.len() }) as f32;
+        let sm = FusionVector::new(sum_x / num_elems, sum_y / num_elems, sum_z / num_elems);
+        sm
     }
 }
 
@@ -222,22 +223,11 @@ impl Analysis {
         linear_acceleration: FusionVector,
     ) -> Option<MovementDirection> {
         let smoothed = self.smoothing.add_measurement(linear_acceleration);
-        assert!(smoothed.x.is_normal());
-        assert!(smoothed.y.is_normal());
-        assert!(smoothed.z.is_normal());
         let x = (smoothed.x * smoothed.x + smoothed.y * smoothed.y).sqrt(); // compute euclidean norm of x and y component
         let y = smoothed.z.abs();
-
-        self.movement_detection.add_measurement(nan_as_zero(x), nan_as_zero(y))
-    }
-}
-
-fn nan_as_zero(val: f32) -> f32 {
-    if !val.is_normal() {
-        0.0
-    }
-    else {
-        val
+        assert!(!x.is_nan());
+        assert!(!y.is_nan());
+        self.movement_detection.add_measurement(x, y)
     }
 }
 
