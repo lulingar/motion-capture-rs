@@ -155,7 +155,7 @@ impl QuantileMovementComputation {
     }
 
     fn compute_quantile_detection_accel(&mut self) -> (f32, f32) {
-        assert!(self.horizontal_measurements.len() >0);
+        assert!(!self.horizontal_measurements.is_empty());
         assert!(self.vertical_measurements.len() == self.horizontal_measurements.len());
 
         self.horizontal_measurements_buffer.clear(); // remove all elements
