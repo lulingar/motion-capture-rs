@@ -27,15 +27,11 @@ embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.48", default-features = false }
 embedded-hal = "*"
-#embedded-graphics = "0.8"
-embedded-svc = "*"
-ssd1306 = "0.8"
+embedded-svc = "0.27"
 mpu9250 = "0.25"
 anyhow = "1"
 imu-fusion = "0.2.4"
 toml-cfg = "0.2.0"
-
-#rand = { version = "0.8.5", features = ["small_rng"] }
 
 [build-dependencies]
 embuild = "0.31"
