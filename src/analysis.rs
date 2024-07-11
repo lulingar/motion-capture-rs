@@ -62,20 +62,18 @@ impl MovementDetection {
         let mut next_state = self.prev_direction;
         let below_thres = self.below_acceleration_threshold(x_accel, y_accel);
 
-        if self.prev_direction.is_none() {
-            if !below_thres {
-                let angle = y_accel.atan2(x_accel);
-                next_state =
-                    if self.angle_low_threshold < angle && angle < self.angle_high_threshold {
-                        Some(MovementDirection::Diagonal)
-                    } else if angle < self.angle_low_threshold {
-                        Some(MovementDirection::Horizontal)
-                    } else {
-                        Some(MovementDirection::Vertical)
-                    };
-            }
-        } else if below_thres {
+        if below_thres {
             next_state = None;
+        } else {
+            let angle = y_accel.atan2(x_accel);
+            next_state =
+                if self.angle_low_threshold < angle && angle < self.angle_high_threshold {
+                    Some(MovementDirection::Diagonal)
+                } else if angle < self.angle_low_threshold {
+                    Some(MovementDirection::Horizontal)
+                } else {
+                    Some(MovementDirection::Vertical)
+                };
         }
         self.prev_direction = next_state;
         next_state
@@ -185,8 +183,8 @@ pub struct Analysis {
 
 impl Default for Analysis {
     fn default() -> Self {
-        let diagonal_low = PI / 4.0 - PI / 8.0;
-        let diagonal_high = 1.1 * PI / 4.0;
+        let diagonal_low = 0.6 * PI / 4.0;
+        let diagonal_high = 1.2 * PI / 4.0;
         Analysis::new(100, 30, 1.5, diagonal_low, diagonal_high)
     }
 }

@@ -131,10 +131,8 @@ fn main() -> Result<()> {
         tracker.update(now, imu_accel, imu_gyro);
 
         let new_direction = analysis.add_measurement(tracker.linear_accel);
-        if direction != new_direction {
-            direction = new_direction;
-
-            if let Some(dir) = direction {
+        if id % 50 == 0 {
+            if let Some(dir) = new_direction {
                 println!("{} {:?}", id, dir);
             }
         }
