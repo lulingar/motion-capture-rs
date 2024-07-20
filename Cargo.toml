@@ -1,10 +1,10 @@
 [package]
 name = "test-hardware"
 version = "0.1.0"
-authors = ["Luis Linares <luis.linares@ieee.org>"]
+authors = ["Luis Linares <linares.luis@proton.me>", "Jan Herlyn <jan@jan-herlyn.com>"]
 edition = "2021"
 resolver = "2"
-rust-version = "1.71"
+rust-version = "1.77"
 
 [profile.release]
 opt-level = "s"
