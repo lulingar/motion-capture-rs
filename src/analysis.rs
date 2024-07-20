@@ -11,6 +11,16 @@ pub enum MovementDirection {
     Diagonal,
 }
 
+impl MovementDirection {
+    pub fn as_payload(&self) -> u8 {
+        match *self {
+            MovementDirection::Vertical => 0,
+            MovementDirection::Horizontal => 1,
+            MovementDirection::Diagonal => 2,
+        }
+    }
+}
+
 struct Smoothing {
     measurements: VecDeque<FusionVector>,
     smoothing_window_size: usize,
