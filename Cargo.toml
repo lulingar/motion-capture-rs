@@ -39,8 +39,7 @@ imu-fusion = "0.2.4"
 toml-cfg = "0.2.0"
 static_cell = { version = "2.1.0", features = ["nightly"] }
 embassy-executor = { version = "0.5.0", features = ["nightly", "executor-thread", "arch-std"] }
-embassy-time        = "0.3.1"
-embassy-time-driver = { version = "0.1.0" }
+embassy-time = { version = "0.3.1", features = ["std", "generic-queue-32"] }
 embassy-embedded-hal = "0.1.0"
 embedded-hal-async  = "1.0.0"
 
