@@ -1,9 +1,12 @@
+#![feature(type_alias_impl_trait)]
+
 use core::time::Duration;
 use std::num::NonZeroU32;
 use std::sync::mpsc::channel;
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
+use esp_idf_svc::hal::task::block_on;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     nvs::EspDefaultNvsPartition,
@@ -52,6 +55,26 @@ pub struct Config {
     wifi_psk: &'static str,
 }
 
+
+use embassy_executor::{Executor, Spawner, task};
+use static_cell::StaticCell;
+static IMU_EXEC: StaticCell<Executor> = StaticCell::new();
+
+#[task]
+async fn imu_run() {
+    use embassy_time::{Ticker, Duration};
+    //use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+    //use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex as CSMutex;
+    //use icm20948_async::{Icm20948, IcmError};
+
+    let mut ticker = Ticker::every(Duration::from_secs(1));
+    loop {
+        log::info!("Hello async!");
+        ticker.next().await;
+    }
+}
+
+
 fn main() -> Result<()> {
     // It is necessary to call this function once. Otherwise, some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
@@ -69,13 +92,13 @@ fn main() -> Result<()> {
 
     let mut delay = FreeRtos;
 
-    let sclk = peripherals.pins.gpio6;
-    let miso = peripherals.pins.gpio2;
-    let mosi = peripherals.pins.gpio7;
-    let cs = PinDriver::output(peripherals.pins.gpio10)?;
     imu_state.bootup_complete().map_err(|err| anyhow!("IMUError: {:?}", err))?;
     link_state.bootup_complete().map_err(|err| anyhow!("LinkError: {:?}", err))?;
 
+    let sclk = peripherals.pins.gpio4;  // Pin "SCL"
+    let mosi = peripherals.pins.gpio5;  // Pin "SDA"
+    let miso = peripherals.pins.gpio6;  // Pin "AD0"
+    let cs = PinDriver::output(peripherals.pins.gpio2)?;  // Pin "nCS"
     let spi = SpiDeviceDriver::new_single(
         peripherals.spi2,
         sclk,
@@ -98,8 +121,8 @@ fn main() -> Result<()> {
     let who_am_i = imu.who_am_i().map_err(|err| anyhow!("IMUError: {:?}", err))?;
     log::info!("WHO_AM_I: 0x{:x}", who_am_i);
 
-    let mut flag_serialize = PinDriver::output(peripherals.pins.gpio21)?;
-    let mut flag_acquire = PinDriver::output(peripherals.pins.gpio20)?;
+    let mut flag_serialize = PinDriver::output(peripherals.pins.gpio9)?;
+    let mut flag_acquire = PinDriver::output(peripherals.pins.gpio8)?;
     flag_serialize.set_low()?;
     flag_acquire.set_low()?;
 
@@ -113,18 +136,24 @@ fn main() -> Result<()> {
     })?;
     callback_timer.every(IMU_SAMPLE_PERIOD)?;
 
-    /* Test calibration function. As expected, it cannot account for earth's gravity
-    let offsets: [f32; 3] = imu.calibrate_at_rest(&mut delay).map_err(|err| anyhow!("Error: {:?}", err))?;
-    println!("Offsets: {:?}", offsets);
-    */
-    let acc_misalignment = FusionMatrix::new(0.998154, 4.21399e-09, 1.36475e-09,
-                                                        4.21466e-09, 0.997542, -2.99281e-09,
-                                                        1.2859e-09, -3.01287e-09, 0.987841);
-    let acc_offset = FusionVector::new(0.0246591f32, -0.00429982f32, 0.137597f32);
+    let acc_misalignment = FusionMatrix::identity();
+    let acc_offset = FusionVector::zero();
     let acc_sensitivity = FusionVector::ones();
-    let gyr_offset = FusionVector::new(1.275, 1.902, -1.202);
+    let gyr_offset = FusionVector::zero();
     let mut tracker = ImuTracker::new(IMU_SAMPLE_PERIOD, Instant::now(), 2000.0f32,
                                       acc_misalignment, acc_sensitivity, acc_offset, gyr_offset);
+
+    //let (tx_imu, rx_imu) = channel::<FusionVector>();
+    std::thread::Builder::new()
+        //.stack_size(8192)
+        .name(String::from("sensor"))
+        .spawn(move || -> Result<()> {
+            //block_on(async move {});
+            let imu_exec = IMU_EXEC.init(Executor::new());
+            imu_exec.run(|spawner| {
+                spawner.spawn(imu_run()).unwrap();
+            });
+        })?;
 
     imu_state.peripherals_complete().map_err(|err| anyhow!("IMUError: {:?}", err))?;
 
@@ -289,4 +318,3 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> Result<()> {
 
     Ok(())
 }
-

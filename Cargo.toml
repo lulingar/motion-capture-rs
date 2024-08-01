@@ -6,15 +6,19 @@ edition = "2021"
 resolver = "2"
 rust-version = "1.77"
 
+[[bin]]
+name = "test-hardware"
+harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
 [profile.release]
 opt-level = "s"
 
 [profile.dev]
-debug = true    # Symbols are nice, and they don't increase the size on Flash
+debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
 
 [features]
-default = ["std", "embassy", "esp-idf-svc/native"]
+default = ["std", "esp-idf-svc/native"]
 
 pio = ["esp-idf-svc/pio"]
 std = ["alloc", "esp-idf-svc/binstart", "esp-idf-svc/std"]
@@ -26,13 +30,21 @@ embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-
 [dependencies]
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.48", default-features = false }
-embedded-hal = "*"
+embedded-hal        = "1.0.0"
 embedded-svc = "0.27"
 mpu9250 = "0.25"
+icm20948-async = { git = "https://github.com/peterkrull/icm20948-async" }
 anyhow = "1"
 imu-fusion = "0.2.4"
 toml-cfg = "0.2.0"
+static_cell = { version = "2.1.0", features = ["nightly"] }
+embassy-executor = { version = "0.5.0", features = ["nightly", "executor-thread", "arch-std"] }
+embassy-time        = "0.3.1"
+embassy-time-driver = { version = "0.1.0" }
+embassy-embedded-hal = "0.1.0"
+embedded-hal-async  = "1.0.0"
 
 [build-dependencies]
+# Newer version 0.32 breaks the build!
 embuild = "0.31"
 anyhow = "1"
