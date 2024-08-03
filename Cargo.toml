@@ -25,7 +25,7 @@ std = ["alloc", "esp-idf-svc/binstart", "esp-idf-svc/std"]
 alloc = ["esp-idf-svc/alloc"]
 nightly = ["esp-idf-svc/nightly"]
 experimental = ["esp-idf-svc/experimental"]
-embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-svc/embassy-time-driver"]
+embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/embassy-time-driver"]
 
 [dependencies]
 log = { version = "0.4", default-features = false }
@@ -39,9 +39,13 @@ imu-fusion = "0.2.4"
 toml-cfg = "0.2.0"
 static_cell = { version = "2.1.0", features = ["nightly"] }
 embassy-executor = { version = "0.5.0", features = ["nightly", "executor-thread", "arch-std"] }
-embassy-time = { version = "0.3.1", features = ["std", "generic-queue-32"] }
+embassy-time = { version = "0.3.1", features = ["generic-queue-32"] }
 embassy-embedded-hal = "0.1.0"
 embedded-hal-async  = "1.0.0"
+critical-section = { version = "1.1", features = [
+    "restore-state-bool",
+], default-features = false }
+
 
 [build-dependencies]
 # Newer version 0.32 breaks the build!
